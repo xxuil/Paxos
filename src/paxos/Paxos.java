@@ -26,10 +26,14 @@ public class Paxos implements PaxosRMI, Runnable{
     // Your data here
     int[] dones;
     boolean DEBUG = false;
+    boolean DEBUG2 = false;
     Set<Integer> seqSet;
     static AtomicInteger n = new AtomicInteger(0);
 
+    public Object v;
+
     Map<Integer, Instance> log;
+    Map<Integer, Proposer> pLog;
 
     public class Instance{
         int np;
@@ -62,6 +66,7 @@ public class Paxos implements PaxosRMI, Runnable{
         // Your initialization code here
         this.seqSet = new HashSet<>();
         this.log = new HashMap<>();
+        this.pLog = new HashMap<>();
         this.dones = new int[peers.length];
 
         for(int i = 0; i < dones.length; i++){
@@ -155,6 +160,7 @@ public class Paxos implements PaxosRMI, Runnable{
 
         Proposer p = new Proposer(seq, value);
         Thread t = new Thread(p);
+        pLog.put(seq, p);
         t.start();
     }
 
@@ -173,7 +179,7 @@ public class Paxos implements PaxosRMI, Runnable{
 
         if(!log.containsKey(req.seq)){
             ok = true;
-            p = new Instance(req.n, req.n, req.v, State.Pending);
+            p = new Instance(req.n, -1, req.v, State.Pending);
 
         } else {
             p = log.get(req.seq);
@@ -183,12 +189,23 @@ public class Paxos implements PaxosRMI, Runnable{
             } else {
                 ok = false;
             }
+            /*
+            if(p.s == State.Decided){
+                ok = false;
+            } else {
+                if(req.n > p.np){
+                    p.s = State.Pending;
+                    ok = true;
+                } else {
+                    ok = false;
+                }
+            }
+            */
         }
 
         if(ok){
             if(DEBUG){ System.out.println("Acceptor:" + me + " receive prepare:" + req + " Accepted"); }
             p.np = req.n;
-
             log.put(req.seq, p);
 
             res = new Response(true, p.np, p.na, null, p.va);
@@ -212,6 +229,7 @@ public class Paxos implements PaxosRMI, Runnable{
         if(!log.containsKey(req.seq)){
             ok = true;
             p = new Instance(req.n, req.n, req.v, State.Pending);
+
         } else {
             p = log.get(req.seq);
 
@@ -260,6 +278,8 @@ public class Paxos implements PaxosRMI, Runnable{
         dones[req.me] = req.done;
 
         res = new Response(true, p.np, p.na, p.va, p.va);
+
+        pLog.put(req.seq, new Proposer(true, p.va));
 
         if(DEBUG){ System.out.println("Acceptor:" + me + " decided:" + req);
             System.out.println("Acceptor Response:" + res);}
@@ -364,20 +384,20 @@ public class Paxos implements PaxosRMI, Runnable{
      */
     public retStatus Status(int seq){
         retStatus ret;
-        mutex.lock();
-
         if(seq < Min()){
             ret = new retStatus(State.Forgotten, null);
         } else {
-            Instance p = log.get(seq);
+            mutex.lock();
+            Proposer p = pLog.get(seq);
             if(p != null) {
-                ret = new retStatus(p.s, p.va);
+                if(DEBUG2) { System.out.println("Px:" + me + " Instance v:" + p.v + " s:" + p.s); }
+                ret = new retStatus(p.s, p.v);
             } else {
                 ret = new retStatus(State.Pending, null);
             }
+            mutex.unlock();
         }
 
-        mutex.unlock();
         return ret;
     }
 
@@ -430,6 +450,9 @@ public class Paxos implements PaxosRMI, Runnable{
         Boolean decided;
         State s;
 
+        int na;
+        Object va;
+
         public Proposer(int seq, Object v){
             this.aCount = peers.length;
             this.seq = seq;
@@ -439,12 +462,7 @@ public class Paxos implements PaxosRMI, Runnable{
             this.s = State.Pending;
         }
 
-        public Proposer(int seq, int n, Object v, boolean s){
-            if(!s){
-                throw new RuntimeException();
-            }
-            this.seq = seq;
-            this.pn = n;
+        public Proposer(boolean s, Object v){
             this.v = v;
             this.decided = s;
             this.s = State.Decided;
@@ -461,7 +479,7 @@ public class Paxos implements PaxosRMI, Runnable{
                 Request req1 = new Request(this.seq, this.pn, null);
                 Response res1;
                 int count = 0;
-                int replypNumber = pn;
+                int replypNumber = -1;
                 Object replyValue = v;
 
                 if(DEBUG){ System.out.println("Proposer seq:" + seq + " on Paxos:" + me + " n:" + pn); }
