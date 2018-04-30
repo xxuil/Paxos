@@ -13,15 +13,18 @@ public class Request implements Serializable {
     public int ID;
     public String key;
     public int v;
+    public int seq;
 
-    public Request(int ID, String k){
+    public Request(int seq, int ID, String k){
         this.op = "Get";
+        this.seq = seq;
         this.ID = ID;
         this.key = k;
     }
 
-    public Request(int ID, String k, int v){
+    public Request(int seq, int ID, String k, int v){
         this.op = "Put";
+        this.seq = seq;
         this.ID = ID;
         this.key = k;
         this.v = v;

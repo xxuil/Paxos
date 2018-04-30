@@ -22,7 +22,7 @@ public class Server implements KVPaxosRMI {
 
     // Your definitions here
     boolean DEBUG = true;
-    int na;
+    int oldID;
     Op va;
     Map<String, Integer> KVlog;
     Map<Integer, Integer> iLog;
@@ -37,7 +37,7 @@ public class Server implements KVPaxosRMI {
         this.mutex = new ReentrantLock();
         this.px = new Paxos(me, servers, ports);
         // Your initialization code here
-        this.na = -1;
+        this.oldID = -1;
         this.va = null;
         this.KVlog = new HashMap<>();
         this.iLog = new HashMap<>();
@@ -53,49 +53,61 @@ public class Server implements KVPaxosRMI {
         }
     }
 
-
-    private int ndecided(Paxos[] pxa, int seq){
-        int counter = 0;
-        Object v = null;
-        Paxos.retStatus ret;
-        for(int i = 0; i < pxa.length; i++){
-            if(pxa[i] != null){
-                ret = pxa[i].Status(seq);
-                if(ret.state == State.Decided) {
-                    //assertFalse("decided values do not match: seq=" + seq + " i=" + i + " v=" + v + " v1=" + ret.v, counter > 0 && !v.equals(ret.v));
-                    if(counter > 0 && !v.equals(ret.v)){
-                        throw new RuntimeException();
-                    }
-                    counter++;
-                    v = ret.v;
-                }
-
-            }
-        }
-        return counter;
-    }
-
-    private void wait(Paxos[] pxa, int seq, int wanted){
+    public Op wait(int seq){
         int to = 10;
-        for(int i = 0; i < 30; i++){
-            if(ndecided(pxa, seq) >= wanted){
-                break;
-            }
-            try {
+        while(true){
+            Paxos.retStatus ret = this.px.Status(seq);
+            if(ret.state == State.Decided){
+              return Op.class.cast(ret.v);
+            } try {
                 Thread.sleep(to);
-            } catch (Exception e){
+            } catch(Exception e) {
                 e.printStackTrace();
-                System.out.print("ERROR");
             }
             if(to < 1000){
                 to = to * 2;
             }
         }
-        int nd = ndecided(pxa, seq);
-        //assertFalse("too few decided; seq=" + seq + " ndecided=" + nd + " wanted=" + wanted, nd < wanted);
-        if(nd < wanted){
-            throw new RuntimeException();
+    }
+
+    public Op start(int seq, Object v){
+        px.Start(seq, v);
+        Op o = wait(seq);
+        return o;
+    }
+
+    public void agree(Op o){
+        while(true){
+            int seq = px.Max() + 1;
+
+            Op p = start(seq, o);
+
+            if(p.equals(o)){
+
+
+                break;
+            }
         }
+    }
+
+    public Object apply(Op o){
+        if(o.op == "Get"){
+            return KVlog.get(o.key);
+        } else {
+            KVlog.put(o.key, o.value);
+        }
+
+        Object max = iLog.get(o.ClientID);
+
+        if(max != null){
+            int m = (int) max;
+            if(m < o.ClientSeq){
+                iLog.put(o.ClientID, o.ClientSeq);
+            }
+        } else {
+            iLog.put(o.ClientID, o.ClientSeq);
+        }
+        return null;
     }
 
 
@@ -104,8 +116,37 @@ public class Server implements KVPaxosRMI {
         // Your code here
         mutex.lock();
         Response res;
+        boolean ok;
 
-        Op op;
+        Op op = new Op("Get", req.seq, req.ID, req.key, null);
+        int ID = req.ID;
+
+        Object m = iLog.get(ID);
+        if(m != null && req.seq <= (int) m){
+            ok = true;
+            res = new Response(ok,KVlog.get(op.key));
+            return res;
+        }
+
+        int sq = oldID + 1;
+
+        while(true){
+            px.Start(sq, op);
+            Op decided = wait(sq);
+
+            if(op.equals(decided)){
+                break;
+            }
+        }
+
+        while(oldID < sq){
+            Op decided = wait(oldID + 1);
+            apply(decided);
+            oldID++;
+        }
+
+        res = new Response(true, KVlog.get(req.key));
+        px.Done(oldID);
 
         mutex.unlock();
         return res;
@@ -116,6 +157,28 @@ public class Server implements KVPaxosRMI {
         mutex.lock();
         Response res;
 
+        Op op = new Op("Put", req.seq, req.ID, req.key, null);
+        int ID = req.ID;
+
+        Object m = iLog.get(ID);
+        if(m != null && req.seq <= (int) m){
+            res = new Response(true, req.v);
+            return res;
+        }
+
+        int sq = oldID + 1;
+
+        while(true){
+            px.Start(sq, op);
+            Op decided = wait(sq);
+
+            if(op.equals(decided)){
+                break;
+            }
+            sq++;
+        }
+
+        res = new Response(true, req.v);
 
         mutex.unlock();
         return res;

@@ -12,6 +12,7 @@ public class Client {
     // Your data here
     static AtomicInteger ref = new AtomicInteger(0);
     int ID;
+    int seq;
 
 
     public Client(String[] servers, int[] ports){
@@ -19,6 +20,7 @@ public class Client {
         this.ports = ports;
         // Your initialization code here
         this.ID = ref.getAndIncrement();
+        this.seq = 0;
     }
 
     /**
@@ -55,16 +57,15 @@ public class Client {
     // RMI handlers
     public Integer Get(String key){
         // Your code here
-        Request req = new Request(ID, key);
+        Request req = new Request(seq, ID, key);
         Response res;
+        seq ++;
         while(true){
             for(int i = 0; i < ports.length; i++){
-                res = Call("KVPaxos.Get", req, i);
+                res = Call("Get", req, i);
                 if(res != null){
                     if(res.state){
                         return res.v;
-                    } else {
-                        return -1;
                     }
                 }
             }
@@ -74,12 +75,12 @@ public class Client {
 
     public boolean Put(String key, Integer value){
         // Your code here
-        Request req = new Request(ID, key, value);
+        Request req = new Request(seq, ID, key, value);
         Response res;
-
+        seq ++;
         while(true){
             for(int i = 0; i < ports.length; i++){
-                res = Call("KVPaxos.Put", req, i);
+                res = Call("Put", req, i);
                 if(res != null){
                     if(res.state){
                         return true;
