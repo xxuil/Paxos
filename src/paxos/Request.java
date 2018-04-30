@@ -13,6 +13,8 @@ public class Request implements Serializable {
     public int seq;
     public int n;
     public Object v;
+    int done = -1;
+    int me = -1;
 
     public Request(int seq, int n, Object v){
         this.seq = seq;

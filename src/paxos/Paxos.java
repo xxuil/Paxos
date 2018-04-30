@@ -25,14 +25,9 @@ public class Paxos implements PaxosRMI, Runnable{
 
     // Your data here
     int[] dones;
-    boolean DEBUG = true;
+    boolean DEBUG = false;
     Set<Integer> seqSet;
-    int np;
-    int na;
-    Object va;
-    int maxSeq;
     static AtomicInteger n = new AtomicInteger(0);
-    static AtomicInteger ID = new AtomicInteger(0);
 
     Map<Integer, Instance> log;
 
@@ -66,10 +61,6 @@ public class Paxos implements PaxosRMI, Runnable{
 
         // Your initialization code here
         this.seqSet = new HashSet<>();
-        this.np = -1;
-        this.na = -1;
-        this.va = null;
-        this.maxSeq = -1;
         this.log = new HashMap<>();
         this.dones = new int[peers.length];
 
@@ -157,7 +148,9 @@ public class Paxos implements PaxosRMI, Runnable{
         if(seqSet.contains(seq)){
             return;
         }
-
+        if(seq < Min()){
+            return;
+        }
         seqSet.add(seq);
 
         Proposer p = new Proposer(seq, value);
@@ -204,17 +197,6 @@ public class Paxos implements PaxosRMI, Runnable{
             res = new Response(false, p.np, p.na, null, p.va);
         }
 
-        /*
-        if(req.n > np){
-            if(DEBUG){ System.out.println("Acceptor:" + me + " receive prepare:" + req + " Accepted"); }
-            np = req.n;
-            res = new Response(true, np, na, null, va);
-        } else {
-            if(DEBUG){ System.out.println("Acceptor:" + me + " receive prepare:" + req + " Rejected"); }
-            res = new Response(false, -1, -1, null, null);
-        }
-        */
-
         mutex.unlock();
         return res;
     }
@@ -222,23 +204,37 @@ public class Paxos implements PaxosRMI, Runnable{
     public Response Accept(Request req){
         // your code here
         mutex.lock();
+
         Response res;
-        if(req.n >= np){
-            np = req.n;
-            na = req.n;
-            va = req.v;
-            this.maxSeq = req.seq;
+        Instance p;
+        boolean ok;
 
-            res = new Response(true, np, na, va, va);
-
-            if(DEBUG){ System.out.println("Acceptor:" + me + " receive accept:" + req + " Accepted");
-                System.out.println("Acceptor Response:" + res);}
+        if(!log.containsKey(req.seq)){
+            ok = true;
+            p = new Instance(req.n, req.n, req.v, State.Pending);
         } else {
-            res = new Response(false, -1, -1, null, null);
+            p = log.get(req.seq);
 
-            if(DEBUG){ System.out.println("Acceptor:" + me + " receive accept:" + req + " Reject");
-                System.out.println("Acceptor Response:" + res);}
+            if(req.n >= p.np){
+                ok = true;
+            } else {
+                ok = false;
+            }
         }
+
+        if(ok) {
+            if (DEBUG) { System.out.println("Acceptor:" + me + " receive accept:" + req + " Accepted"); }
+
+            p.np = req.n;
+            p.na = req.n;
+            p.va = req.v;
+
+            res = new Response(true, p.np, p.na, p.va, p.va);
+        } else {
+            if (DEBUG) { System.out.println("Acceptor:" + me + " receive accept:" + req + " Reject");}
+            res = new Response(false, p.np, p.na, p.va, p.va);
+        }
+
         mutex.unlock();
         return res;
     }
@@ -247,7 +243,23 @@ public class Paxos implements PaxosRMI, Runnable{
         // your code here
         mutex.lock();
         Response res;
-        res = new Response(true, np, na, va, va);
+        Instance p;
+        boolean ok;
+
+        if(!log.containsKey(req.seq)){
+            ok = true;
+            p = new Instance(req.n, req.n, req.v, State.Pending);
+        } else {
+            p = log.get(req.seq);
+        }
+
+        p.np = req.n;
+        p.na = req.n;
+        p.va = req.v;
+        p.s = State.Decided;
+        dones[req.me] = req.done;
+
+        res = new Response(true, p.np, p.na, p.va, p.va);
 
         if(DEBUG){ System.out.println("Acceptor:" + me + " decided:" + req);
             System.out.println("Acceptor Response:" + res);}
@@ -263,7 +275,6 @@ public class Paxos implements PaxosRMI, Runnable{
      * see the comments for Min() for more explanation.
      */
     public void Done(int seq) {
-        // Your code here
         mutex.lock();
         if(seq > dones[me]){
             dones[me] = seq;
@@ -278,12 +289,11 @@ public class Paxos implements PaxosRMI, Runnable{
      * this peer.
      */
     public int Max(){
-        // Your code here
         mutex.lock();
         int max = 0;
-        for(Instance p : log.values()){
-            if(p.seq > max){
-                max = p.seq;
+        for(int i : log.keySet()){
+            if(i > max){
+                max = i;
             }
         }
         mutex.unlock();
@@ -319,7 +329,6 @@ public class Paxos implements PaxosRMI, Runnable{
      * instances.
      */
     public int Min(){
-        // Your code here
         mutex.lock();
         int min = dones[me];
 
@@ -329,15 +338,15 @@ public class Paxos implements PaxosRMI, Runnable{
             }
         }
 
-        for(Proposer p : log.values()){
-            if(p.seq > min){
+        for(int i : log.keySet()){
+            if(i > min){
                 continue;
             }
-            if(!p.decided){
+            if(log.get(i).s != State.Decided){
                 continue;
             }
 
-            log.values().remove(p);
+            log.values().remove(i);
         }
 
         mutex.unlock();
@@ -354,7 +363,6 @@ public class Paxos implements PaxosRMI, Runnable{
      * it should not contact other Paxos peers.
      */
     public retStatus Status(int seq){
-        // Your code here
         retStatus ret;
         mutex.lock();
 
@@ -497,9 +505,22 @@ public class Paxos implements PaxosRMI, Runnable{
                     }
 
                     if(count > (aCount / 2)){
+
                         if(DEBUG){ System.out.println("Proposer seq:" + seq + " on Paxos:" + me + " n:" + pn + " accepted"); }
 
-                        Request req3 = new Request(this.seq, this.pn, replyValue);
+                        mutex.lock();
+                        Instance p = log.get(seq);
+                        p.s = State.Decided;
+                        p.np = pn;
+                        p.na = pn;
+                        p.va = replyValue;
+
+                        log.put(seq, p);
+                        mutex.unlock();
+
+                        Request req3 = new Request(seq, pn, replyValue);
+                        req3.me = me;
+                        req3.done = dones[me];
                         Response res3;
                         count = 0;
 
@@ -526,7 +547,6 @@ public class Paxos implements PaxosRMI, Runnable{
                             if(DEBUG){ System.out.println("Proposer seq:" + seq + " on Paxos:" + me + " n:" + pn + " Decided v:" + replyValue); }
                             decided = true;
                             s = State.Decided;
-                            //v = v2;
                         }
 
                         break;
@@ -539,7 +559,6 @@ public class Paxos implements PaxosRMI, Runnable{
                 if(check.state == State.Decided){
                     break;
                 }
-
 
                 this.pn = n.getAndIncrement();
             }
