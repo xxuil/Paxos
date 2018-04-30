@@ -83,8 +83,6 @@ public class Server implements KVPaxosRMI {
             Op p = start(seq, o);
 
             if(p.equals(o)){
-
-
                 break;
             }
         }
@@ -145,7 +143,7 @@ public class Server implements KVPaxosRMI {
             oldID++;
         }
 
-        res = new Response(true, KVlog.get(req.key));
+        res = new Response(true, req.v);
         px.Done(oldID);
 
         mutex.unlock();
@@ -157,7 +155,7 @@ public class Server implements KVPaxosRMI {
         mutex.lock();
         Response res;
 
-        Op op = new Op("Put", req.seq, req.ID, req.key, null);
+        Op op = new Op("Put", req.seq, req.ID, req.key, req.v);
         int ID = req.ID;
 
         Object m = iLog.get(ID);

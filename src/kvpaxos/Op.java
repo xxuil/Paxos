@@ -22,6 +22,12 @@ public class Op implements Serializable{
 
     public boolean equals(Op that) {
         if(this.key.equals(that.key)){
+            if(that.value == null || this.value == null){
+                if(this.value == null && that.value == null){
+                    return true;
+                }
+                return false;
+            }
             if(this.value.equals(that.value)){
                 return true;
             }

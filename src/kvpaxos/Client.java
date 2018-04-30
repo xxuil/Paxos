@@ -49,7 +49,7 @@ public class Client {
             else
                 System.out.println("Wrong parameters!");
         } catch(Exception e){
-            return null;
+            e.printStackTrace();
         }
         return callReply;
     }
