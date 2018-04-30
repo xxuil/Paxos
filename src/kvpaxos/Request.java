@@ -9,20 +9,29 @@ import java.io.Serializable;
 public class Request implements Serializable {
     static final long serialVersionUID=11L;
     // Your data here
-    public int seq;
-    public int n;
-    public Object v;
-    int done = -1;
-    int me = -1;
+    public String op;
+    public int ID;
+    public String key;
+    public int v;
 
-    public Request(int seq, int n, Object v){
-        this.seq = seq;
-        this.n = n;
+    public Request(int ID, String k){
+        this.op = "Get";
+        this.ID = ID;
+        this.key = k;
+    }
+
+    public Request(int ID, String k, int v){
+        this.op = "Put";
+        this.ID = ID;
+        this.key = k;
         this.v = v;
     }
 
     @Override
     public String toString() {
-        return "Req Seq:" + seq + " n:" + n + " v:" + v;
+        if(this.op.equals("Get")){
+            return "Req Get ID:" + ID + " key: " + key;
+        }
+        return "Req Seq:";
     }
 }

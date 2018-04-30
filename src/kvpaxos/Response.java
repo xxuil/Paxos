@@ -10,23 +10,17 @@ public class Response implements Serializable {
     static final long serialVersionUID=22L;
     // your data here
     boolean state;  //True = accept, False = reject
-    int n;
-    int na;
-    Object v;
-    Object va;
+    int v;
 
     // Your constructor and methods here
-    public Response(boolean s, int n, int na, Object v, Object va){
+    public Response(boolean s, int v){
         this.state = s;
-        this.n = n;
-        this.na = na;
         this.v = v;
-        this.va = va;
     }
 
 
     @Override
     public String toString() {
-        return "State:" + state + " n:" + n + " na:" + na + " v:" + v + " va:" + va;
+        return "State:" + state + " v:" + v;
     }
 }

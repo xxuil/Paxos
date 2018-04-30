@@ -1,4 +1,15 @@
 package paxos;
+
+/*
+ * EE 360P HW 5 Paxos Assignment
+ * Date: 04/30/2018
+ * Name: Xiangxing Liu
+ * EID1: xl5587
+ * Name: Kravis Cho
+ * EID2: kyc375
+ */
+
+
 import java.rmi.registry.LocateRegistry;
 import java.rmi.server.UnicastRemoteObject;
 import java.rmi.registry.Registry;
@@ -189,18 +200,6 @@ public class Paxos implements PaxosRMI, Runnable{
             } else {
                 ok = false;
             }
-            /*
-            if(p.s == State.Decided){
-                ok = false;
-            } else {
-                if(req.n > p.np){
-                    p.s = State.Pending;
-                    ok = true;
-                } else {
-                    ok = false;
-                }
-            }
-            */
         }
 
         if(ok){
@@ -372,7 +371,6 @@ public class Paxos implements PaxosRMI, Runnable{
         mutex.unlock();
         return min + 1;
     }
-
 
 
     /**

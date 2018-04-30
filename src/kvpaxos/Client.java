@@ -2,6 +2,7 @@ package kvpaxos;
 
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
+import java.util.concurrent.atomic.AtomicInteger;
 
 
 public class Client {
@@ -9,12 +10,15 @@ public class Client {
     int[] ports;
 
     // Your data here
+    static AtomicInteger ref = new AtomicInteger(0);
+    int ID;
 
 
     public Client(String[] servers, int[] ports){
         this.servers = servers;
         this.ports = ports;
         // Your initialization code here
+        this.ID = ref.getAndIncrement();
     }
 
     /**
@@ -51,11 +55,39 @@ public class Client {
     // RMI handlers
     public Integer Get(String key){
         // Your code here
-
+        Request req = new Request(ID, key);
+        Response res;
+        while(true){
+            for(int i = 0; i < ports.length; i++){
+                res = Call("KVPaxos.Get", req, i);
+                if(res != null){
+                    if(res.state){
+                        return res.v;
+                    } else {
+                        return -1;
+                    }
+                }
+            }
+            ID = ref.getAndIncrement();
+        }
     }
 
     public boolean Put(String key, Integer value){
         // Your code here
+        Request req = new Request(ID, key, value);
+        Response res;
+
+        while(true){
+            for(int i = 0; i < ports.length; i++){
+                res = Call("KVPaxos.Put", req, i);
+                if(res != null){
+                    if(res.state){
+                        return true;
+                    }
+                }
+            }
+            ID = ref.getAndIncrement();
+        }
     }
 
 }
