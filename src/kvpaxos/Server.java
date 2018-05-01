@@ -1,4 +1,14 @@
 package kvpaxos;
+
+/*
+ * EE 360P HW 5 Paxos Assignment
+ * Date: 04/30/2018
+ * Name: Xiangxing Liu
+ * EID1: xl5587
+ * Name: Kravis Cho
+ * EID2: kyc375
+ */
+
 import paxos.Paxos;
 import paxos.State;
 import java.util.*;
@@ -119,8 +129,16 @@ public class Server implements KVPaxosRMI {
         int ID = req.ID;
 
         Object m = iLog.get(ID);
+        if(m == null){
+            res = new Response(false, -1);
+            return res;
+        }
         if(m != null && req.seq <= (int) m){
             ok = true;
+            if(KVlog.get(op.key) == null){
+                res = new Response(false, -1);
+                return res;
+            }
             res = new Response(ok,KVlog.get(op.key));
             return res;
         }

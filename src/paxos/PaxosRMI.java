@@ -1,4 +1,14 @@
 package paxos;
+
+/*
+ * EE 360P HW 5 Paxos Assignment
+ * Date: 04/30/2018
+ * Name: Xiangxing Liu
+ * EID1: xl5587
+ * Name: Kravis Cho
+ * EID2: kyc375
+ */
+
 import java.rmi.Remote;
 import java.rmi.RemoteException;
 

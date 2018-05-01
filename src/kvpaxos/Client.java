@@ -1,5 +1,14 @@
 package kvpaxos;
 
+/*
+ * EE 360P HW 5 Paxos Assignment
+ * Date: 04/30/2018
+ * Name: Xiangxing Liu
+ * EID1: xl5587
+ * Name: Kravis Cho
+ * EID2: kyc375
+ */
+
 import java.rmi.registry.LocateRegistry;
 import java.rmi.registry.Registry;
 import java.util.concurrent.atomic.AtomicInteger;
@@ -66,6 +75,8 @@ public class Client {
                 if(res != null){
                     if(res.state){
                         return res.v;
+                    }
+                    else {
                     }
                 }
             }
