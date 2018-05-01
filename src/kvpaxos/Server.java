@@ -115,7 +115,6 @@ public class Server implements KVPaxosRMI {
         mutex.lock();
         Response res;
         boolean ok;
-
         Op op = new Op("Get", req.seq, req.ID, req.key, null);
         int ID = req.ID;
 
@@ -127,23 +126,23 @@ public class Server implements KVPaxosRMI {
         }
 
         int sq = oldID + 1;
-
+        Op decided;
         while(true){
             px.Start(sq, op);
-            Op decided = wait(sq);
+            decided = wait(sq);
 
-            if(op.equals(decided)){
+            if(op.key.equals(decided.key)){             //modified
                 break;
             }
         }
 
         while(oldID < sq){
-            Op decided = wait(oldID + 1);
+            decided = wait(oldID + 1);
             apply(decided);
             oldID++;
         }
 
-        res = new Response(true, req.v);
+        res = new Response(true, decided.value);        //modified
         px.Done(oldID);
 
         mutex.unlock();
@@ -170,7 +169,7 @@ public class Server implements KVPaxosRMI {
             px.Start(sq, op);
             Op decided = wait(sq);
 
-            if(op.equals(decided)){
+            if(op.key.equals(decided.key)){         //modified
                 break;
             }
             sq++;
